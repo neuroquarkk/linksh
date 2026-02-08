@@ -1,0 +1,37 @@
+{
+    "name": "linksh",
+    "module": "index.ts",
+    "type": "module",
+    "private": true,
+    "scripts": {
+        "dev": "bun run --hot src/server.ts",
+        "start": "bun run src/server.ts",
+        "format": "prettier . --write",
+        "prepare": "husky"
+    },
+    "devDependencies": {
+        "@types/bun": "latest",
+        "@types/express": "^5.0.6",
+        "@types/morgan": "^1.9.10",
+        "husky": "^9.1.7",
+        "lint-staged": "^16.2.7",
+        "prettier": "^3.8.1",
+        "prisma": "^7.3.0"
+    },
+    "peerDependencies": {
+        "typescript": "^5"
+    },
+    "dependencies": {
+        "@paralleldrive/cuid2": "^3.3.0",
+        "@prisma/adapter-pg": "^7.3.0",
+        "@prisma/client": "^7.3.0",
+        "express": "^5.2.1",
+        "helmet": "^8.1.0",
+        "morgan": "^1.10.1",
+        "pg": "^8.18.0",
+        "zod": "^4.3.6"
+    },
+    "lint-staged": {
+        "*.{js,jsx,ts,tsx,json,css,scss,md,html}": "prettier --write"
+    }
+}
