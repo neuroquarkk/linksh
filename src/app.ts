@@ -4,6 +4,7 @@ import { logStream } from '@utils';
 import express from 'express';
 import morgan from 'morgan';
 import helmet from 'helmet';
+import { urlRouter } from 'api/urls/router';
 
 const app = express();
 
@@ -19,6 +20,8 @@ app.use(
 app.get('/', (_req, res) => {
     return res.send('Hello from the server');
 });
+
+app.use('/api/v1/urls', urlRouter);
 
 app.use(errorHandler);
 export default app;

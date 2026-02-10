@@ -6,3 +6,13 @@ generator client {
 datasource db {
     provider = "postgresql"
 }
+
+model Link {
+    id        Int      @id @default(autoincrement())
+    longUrl   String   @map("long_url")
+    short     String   @unique
+    clicks    Int      @default(0)
+    createdAt DateTime @default(now()) @map("created_at")
+
+    @@map("links")
+}
