@@ -8,11 +8,30 @@ datasource db {
 }
 
 model Link {
-    id        Int      @id @default(autoincrement())
-    longUrl   String   @map("long_url")
-    short     String   @unique
-    clicks    Int      @default(0)
-    createdAt DateTime @default(now()) @map("created_at")
+    id        Int       @id @default(autoincrement())
+    longUrl   String    @map("long_url")
+    short     String    @unique
+    clicks    Int       @default(0)
+    expiresAt DateTime? @map("expires_at")
+    createdAt DateTime  @default(now()) @map("created_at")
+
+    analytics Analytic[]
 
     @@map("links")
+}
+
+model Analytic {
+    id       Int     @id @default(autoincrement())
+    linkId   Int     @map("link_id")
+    ip       String?
+    city     String?
+    country  String?
+    os       String?
+    browser  String?
+    device   String?
+    referrer String?
+
+    link Link @relation(fields: [linkId], references: [id], onDelete: Cascade)
+
+    @@map("analytics")
 }

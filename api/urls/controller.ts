@@ -6,15 +6,18 @@ import { HttpStatusCode } from '@constants';
 import { ApiError, ApiResponse } from '@utils';
 import { config } from '@config';
 import QRCode from 'qrcode';
+import { UAParser } from 'ua-parser-js';
+import geoip from 'geoip-lite';
 
 export class UrlController {
     public static shorten: TypedController<ShortenBody> = async (req, res) => {
-        const { longUrl } = req.body;
+        const { longUrl, expiresAt } = req.body;
 
         const link = await prisma.link.create({
             data: {
                 longUrl,
                 short: '',
+                expiresAt,
             },
         });
 
@@ -48,6 +51,32 @@ export class UrlController {
 
         if (!link)
             throw new ApiError(HttpStatusCode.NOT_FOUND, 'Link not found');
+
+        if (link.expiresAt && new Date() > link.expiresAt)
+            throw new ApiError(HttpStatusCode.GONE, 'Link has expired');
+
+        const ip = req.socket.remoteAddress || '';
+        const userAgent = req.headers['user-agent'] || '';
+        const referrer = req.headers['referer'] || 'Direct';
+
+        const parser = new UAParser(userAgent);
+        const uaResult = parser.getResult();
+        const geo = geoip.lookup(ip);
+
+        prisma.analytic
+            .create({
+                data: {
+                    linkId: link.id,
+                    ip,
+                    city: geo?.city || 'Unknown',
+                    country: geo?.country || 'Unknown',
+                    os: uaResult.os.name || 'Unknown',
+                    browser: uaResult.browser.name || 'Unknown',
+                    device: uaResult.device.type || 'Unknown',
+                    referrer,
+                },
+            })
+            .catch((err) => console.error('Analytics Error:', err));
 
         prisma.link
             .update({
@@ -86,5 +115,60 @@ export class UrlController {
 
         res.setHeader('Content-Type', 'image/png');
         return res.send(qrBuff);
+    };
+
+    public static getAnalytics: TypedController<any, RedirectParam> = async (
+        req,
+        res
+    ) => {
+        const { short } = req.params;
+
+        const link = await prisma.link.findUnique({
+            where: { short },
+            include: {
+                _count: {
+                    select: { analytics: true },
+                },
+            },
+        });
+
+        if (!link)
+            throw new ApiError(HttpStatusCode.NOT_FOUND, 'Link not found');
+
+        // top browsers
+        const browsers = await prisma.analytic.groupBy({
+            by: ['browser'],
+            where: { linkId: link.id },
+            _count: { browser: true },
+            orderBy: { _count: { browser: 'desc' } },
+            take: 5,
+        });
+
+        // top countires
+        const countries = await prisma.analytic.groupBy({
+            by: ['country'],
+            where: { linkId: link.id },
+            _count: { country: true },
+            orderBy: { _count: { country: 'desc' } },
+            take: 5,
+        });
+
+        return res.status(HttpStatusCode.OK).json(
+            new ApiResponse(
+                HttpStatusCode.OK,
+                {
+                    totalClicks: link.clicks,
+                    topBrowsers: browsers.map((b) => ({
+                        name: b.browser,
+                        count: b._count.browser,
+                    })),
+                    topCountries: countries.map((c) => ({
+                        name: c.country,
+                        count: c._count.country,
+                    })),
+                },
+                'Analytics retrieved'
+            )
+        );
     };
 }

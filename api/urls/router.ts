@@ -14,5 +14,9 @@ urlRouter
     .get(validate(redirectParam, 'params'), UrlController.getQr);
 
 urlRouter
+    .route('/:short/stats')
+    .get(validate(redirectParam, 'params'), UrlController.getAnalytics);
+
+urlRouter
     .route('/:short')
     .get(validate(redirectParam, 'params'), UrlController.redirect);
