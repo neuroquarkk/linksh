@@ -10,5 +10,9 @@ urlRouter
     .post(validate(shortenBodySchema, 'body'), UrlController.shorten);
 
 urlRouter
+    .route('/:short/qr')
+    .get(validate(redirectParam, 'params'), UrlController.getQr);
+
+urlRouter
     .route('/:short')
     .get(validate(redirectParam, 'params'), UrlController.redirect);

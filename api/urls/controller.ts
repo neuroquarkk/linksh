@@ -4,6 +4,8 @@ import { prisma } from '@db';
 import { Base62 } from 'src/utils/base62';
 import { HttpStatusCode } from '@constants';
 import { ApiError, ApiResponse } from '@utils';
+import { config } from '@config';
+import QRCode from 'qrcode';
 
 export class UrlController {
     public static shorten: TypedController<ShortenBody> = async (req, res) => {
@@ -55,5 +57,34 @@ export class UrlController {
             .catch((err) => console.error('Failed to track click', err));
 
         return res.redirect(link.longUrl);
+    };
+
+    public static getQr: TypedController<any, RedirectParam> = async (
+        req,
+        res
+    ) => {
+        const { short } = req.params;
+
+        const link = await prisma.link.findUnique({
+            where: { short },
+        });
+
+        if (!link)
+            throw new ApiError(HttpStatusCode.NOT_FOUND, 'Link not found');
+
+        const fullShortUrl = `${config.BASE_URL}/${short}`;
+
+        const qrBuff = await QRCode.toBuffer(fullShortUrl, {
+            type: 'png',
+            margin: 1,
+            scale: 10,
+            color: {
+                dark: '#000000',
+                light: '#FFFFFF',
+            },
+        });
+
+        res.setHeader('Content-Type', 'image/png');
+        return res.send(qrBuff);
     };
 }
