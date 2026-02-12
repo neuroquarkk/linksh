@@ -5,7 +5,9 @@ const envSchema = z.object({
         .enum(['development', 'test', 'production'])
         .default('development'),
     PORT: z.coerce.number().positive().int().default(8080),
+
     DATABASE_URL: z.string().trim(),
+    REDIS_URL: z.string().trim().default('redis://localhost:6379'),
 
     BASE_URL: z.url().default('http://localhost:8080'),
 });

@@ -8,24 +8,24 @@ import { config } from '@config';
 import QRCode from 'qrcode';
 import { UAParser } from 'ua-parser-js';
 import geoip from 'geoip-lite';
+import { redis } from 'src/db/redis';
 
 export class UrlController {
+    private static readonly ID_REDIS = 'link:global_id';
+
     public static shorten: TypedController<ShortenBody> = async (req, res) => {
         const { longUrl, expiresAt } = req.body;
 
-        const link = await prisma.link.create({
+        const newId = await redis.incr(this.ID_REDIS);
+        const shortCode = Base62.encode(newId);
+
+        const updatedLink = await prisma.link.create({
             data: {
+                id: newId,
                 longUrl,
-                short: '',
+                short: shortCode,
                 expiresAt,
             },
-        });
-
-        const shortCode = Base62.encode(link.id);
-
-        const updatedLink = await prisma.link.update({
-            where: { id: link.id },
-            data: { short: shortCode },
         });
 
         return res
@@ -177,30 +177,24 @@ export class UrlController {
         res
     ) => {
         const { urls } = req.body;
+        const count = urls.length;
 
-        const results = await prisma.$transaction(async (tx) => {
-            const createdLinks = [];
+        const endId = await redis.incrBy(this.ID_REDIS, count);
+        const startId = endId - count + 1;
 
-            for (const url of urls) {
-                const link = await tx.link.create({
-                    data: {
-                        longUrl: url.longUrl,
-                        short: '',
-                        expiresAt: url.expiresAt,
-                    },
-                });
+        const linksData = urls.map((url, idx) => {
+            const id = startId + idx;
+            return {
+                id,
+                longUrl: url.longUrl,
+                short: Base62.encode(id),
+                expiresAt: url.expiresAt,
+            };
+        });
 
-                const shortCode = Base62.encode(link.id);
-
-                const updatedLink = await tx.link.update({
-                    where: { id: link.id },
-                    data: { short: shortCode },
-                });
-
-                createdLinks.push(updatedLink);
-            }
-
-            return createdLinks;
+        await prisma.link.createMany({
+            data: linksData,
+            skipDuplicates: true,
         });
 
         return res
@@ -208,7 +202,7 @@ export class UrlController {
             .json(
                 new ApiResponse(
                     HttpStatusCode.CREATED,
-                    results,
+                    linksData,
                     'Batch links created successfully'
                 )
             );
