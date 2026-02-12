@@ -1,5 +1,5 @@
 import type { TypedController } from '@types';
-import type { RedirectParam, ShortenBody } from './schema';
+import type { BatchShortenBody, RedirectParam, ShortenBody } from './schema';
 import { prisma } from '@db';
 import { Base62 } from 'src/utils/base62';
 import { HttpStatusCode } from '@constants';
@@ -170,5 +170,47 @@ export class UrlController {
                 'Analytics retrieved'
             )
         );
+    };
+
+    public static batchShorten: TypedController<BatchShortenBody> = async (
+        req,
+        res
+    ) => {
+        const { urls } = req.body;
+
+        const results = await prisma.$transaction(async (tx) => {
+            const createdLinks = [];
+
+            for (const url of urls) {
+                const link = await tx.link.create({
+                    data: {
+                        longUrl: url.longUrl,
+                        short: '',
+                        expiresAt: url.expiresAt,
+                    },
+                });
+
+                const shortCode = Base62.encode(link.id);
+
+                const updatedLink = await tx.link.update({
+                    where: { id: link.id },
+                    data: { short: shortCode },
+                });
+
+                createdLinks.push(updatedLink);
+            }
+
+            return createdLinks;
+        });
+
+        return res
+            .status(HttpStatusCode.CREATED)
+            .json(
+                new ApiResponse(
+                    HttpStatusCode.CREATED,
+                    results,
+                    'Batch links created successfully'
+                )
+            );
     };
 }
